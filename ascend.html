@@ -1,0 +1,2353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Ascend - High Altitude & Level Editor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./favicon.png">
+<meta name="theme-color" content="#111111">
+
+<!-- iOS support -->
+<link rel="apple-touch-icon" href="./favicon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap');
+    
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+      background-color: #ffffff;
+      touch-action: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .ui-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+    
+    .fade-transition {
+      transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    /* Flash Overlay for Camera Effects */
+    #flashOverlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: white;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 20;
+      transition: opacity 0.1s ease-out;
+    }
+
+    /* Ultra-clean UI styling */
+    .btn-primary {
+      background: #111;
+      color: #fff;
+      padding: 20px 56px;
+      border-radius: 9999px;
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.03em;
+      box-shadow: 0 20px 40px -10px rgba(0,0,0,0.15);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      border: none;
+      cursor: pointer;
+      outline: none;
+      position: relative;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      touch-action: manipulation;
+    }
+    .btn-primary:hover {
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 25px 60px -12px rgba(0,0,0,0.25);
+    }
+    .btn-primary:active {
+      transform: scale(0.96);
+    }
+    .btn-primary::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(rgba(255,255,255,0.1), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .btn-primary:hover::after {
+      opacity: 1;
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.8);
+      color: #111;
+      padding: 16px 40px;
+      border-radius: 9999px;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: -0.02em;
+      box-shadow: 0 10px 30px -5px rgba(0,0,0,0.1);
+      transition: all 0.2s ease;
+      border: 1px solid rgba(0,0,0,0.1);
+      cursor: pointer;
+      margin-top: 1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      touch-action: manipulation;
+    }
+    .btn-secondary:hover {
+      background: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 15px 35px -5px rgba(0,0,0,0.15);
+    }
+
+    #scoreHud {
+      position: absolute;
+      top: 2rem;
+      left: 2rem;
+      font-weight: 900;
+      font-size: 4rem;
+      color: #f3f4f6;
+      z-index: 5;
+      letter-spacing: -0.06em;
+      pointer-events: none;
+      text-shadow: 2px 2px 0px rgba(0,0,0,0.05);
+      transition: color 0.3s ease, transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.5);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Pause Button specific styles */
+    #pauseBtn {
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    #pauseBtn:active {
+      transform: scale(0.9);
+    }
+
+    /* Editor Specifics */
+    .tool-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+      flex-shrink: 0;
+    }
+    .tool-btn.active {
+      background: #e0f2fe;
+      border-color: #3b82f6;
+      color: #2563eb;
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+    }
+    .tool-btn:hover:not(.active) {
+      background: #f3f4f6;
+    }
+    
+    /* Scrollbar hiding for tool container on mobile */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Level Select Cards */
+    .level-card {
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 1rem;
+      padding: 1rem;
+      transition: all 0.2s ease;
+      border: 1px solid rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 140px;
+    }
+    .level-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+      background: #fff;
+    }
+    .level-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+      width: 100%;
+      max-height: 60vh;
+      overflow-y: auto;
+      padding: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Canvas Layer -->
+  <canvas id="gameCanvas"></canvas>
+  
+  <!-- Flash Overlay for Camera Effects -->
+  <div id="flashOverlay"></div>
+
+  <!-- Score HUD -->
+  <div id="scoreHud">0</div>
+
+  <!-- FPS Counter (Tick Rate Monitor) -->
+  <div id="fpsDisplay" class="absolute top-4 right-4 font-mono text-xs font-bold text-gray-400/50 pointer-events-none z-50 select-none tracking-widest">60 FPS</div>
+
+  <!-- Pause Button (Right Bottom) -->
+  <button id="pauseBtn" class="hidden absolute bottom-8 right-8 w-16 h-16 bg-white/90 backdrop-blur-md rounded-full shadow-xl z-50 flex items-center justify-center text-gray-800 border border-white/50 interactive group">
+    <!-- Pause Icon -->
+    <svg id="pauseIcon" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    <!-- Play Icon (Hidden by default) -->
+    <svg id="playIcon" xmlns="http://www.w3.org/2000/svg" class="hidden h-8 w-8 group-hover:scale-110 transition-transform pl-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+      <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  </button>
+
+  <!-- Pause Screen Overlay -->
+  <div id="pauseScreen" class="ui-overlay hidden glass-panel z-40 interactive">
+    <h2 class="text-5xl font-black text-gray-800 tracking-tighter">PAUSED</h2>
+    <p class="text-gray-500 mt-2 font-medium">Tap screen or press P to resume</p>
+    <div class="flex flex-col gap-3 mt-8">
+      <button id="exitToEditorBtn" class="hidden px-6 py-3 bg-blue-100 hover:bg-blue-200 rounded-full font-bold text-blue-800 transition-colors">Back to Editor</button>
+      <button id="exitToMenuBtn" class="px-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-full font-bold text-gray-700 transition-colors">Exit to Menu</button>
+    </div>
+  </div>
+
+  <!-- Start Screen -->
+  <div id="startScreen" class="ui-overlay interactive fade-transition glass-panel">
+    <div class="text-center">
+      <div class="mb-8 w-28 h-28 bg-black rounded-[2.5rem] mx-auto shadow-2xl flex items-center justify-center animate-bounce-slow relative overflow-hidden group">
+        <div class="absolute inset-0 bg-gradient-to-tr from-gray-900 to-gray-700"></div>
+        <div class="w-10 h-10 bg-white rounded-full relative z-10 shadow-[0_0_20px_rgba(255,255,255,0.5)]"></div>
+      </div>
+      <h1 class="text-8xl font-black text-gray-900 mb-2 tracking-tighter leading-none drop-shadow-sm">ASCEND</h1>
+      <p class="text-gray-500 mb-12 font-medium text-xl tracking-tight">Tap sides or use arrows to jump</p>
+      <div class="flex flex-col gap-4">
+        <!-- SVG Start Button -->
+        <button id="startBtn" class="btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+          Start Climbing
+        </button>
+        <!-- SVG Editor Button -->
+        <button id="editorBtn" class="btn-secondary">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          Level Editor
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level Select Screen -->
+  <div id="levelSelectScreen" class="ui-overlay hidden interactive fade-transition glass-panel z-20">
+    <div class="w-full max-w-4xl px-6 h-full flex flex-col justify-center">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-4xl font-black text-gray-900 tracking-tighter">MY LEVELS</h2>
+        <button id="backToMenuFromLevels" class="w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Level Grid -->
+      <div id="levelGrid" class="level-grid no-scrollbar mb-6">
+        <!-- Levels injected via JS -->
+      </div>
+
+      <div class="flex justify-center">
+        <button id="createNewLevelBtn" class="btn-primary py-4 px-8 text-lg">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Create New Level
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Level Modal -->
+  <div id="createLevelModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm interactive">
+    <div class="bg-white rounded-2xl p-8 shadow-2xl w-full max-w-md transform transition-all scale-100">
+      <h3 class="text-2xl font-bold text-gray-900 mb-4">Name Your Level</h3>
+      <input type="text" id="newLevelNameInput" class="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-black focus:outline-none text-lg font-bold mb-6" placeholder="Enter name..." maxlength="20">
+      <div class="flex gap-3 justify-end">
+        <button id="cancelCreateLevel" class="px-6 py-2 rounded-lg font-bold text-gray-500 hover:bg-gray-100 transition-colors">Cancel</button>
+        <button id="confirmCreateLevel" class="px-6 py-2 rounded-lg font-bold bg-black text-white hover:bg-gray-800 transition-colors">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor UI -->
+  <div id="editorUI" class="ui-overlay hidden pointer-events-none z-50">
+    <!-- Top Bar -->
+    <div class="absolute top-4 left-4 right-4 h-20 md:h-16 glass-panel rounded-2xl flex items-center justify-between px-4 pointer-events-auto overflow-x-auto no-scrollbar">
+      <div class="flex items-center gap-2 min-w-max">
+        <div class="text-xs font-bold text-gray-400 uppercase tracking-widest mr-2 hidden md:block">Tools</div>
+        
+        <!-- Free Hand Tool (Replaces Pan) -->
+        <button class="tool-btn" data-tool="pan" title="Free Hand (Move Camera)">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+          </svg>
+        </button>
+        
+        <div class="w-px h-8 bg-gray-300 mx-2"></div>
+
+        <button class="tool-btn active" data-tool="normal" title="Normal Platform">
+          <div class="w-6 h-2 bg-gray-600 rounded"></div>
+        </button>
+        <button class="tool-btn" data-tool="moving" title="Moving Platform">
+          <div class="w-6 h-2 bg-blue-500 rounded"></div>
+        </button>
+        <button class="tool-btn" data-tool="breakable" title="Breakable Platform">
+          <div class="w-6 h-2 bg-yellow-800 rounded"></div>
+        </button>
+        <button class="tool-btn" data-tool="spike" title="Spike">
+          <div class="w-6 h-2 bg-red-600 rounded clip-spike"></div>
+        </button>
+        <button class="tool-btn" data-tool="orb" title="Jump Orb">
+          <div class="w-4 h-4 bg-red-500 rounded-full border-2 border-red-300"></div>
+        </button>
+        <button class="tool-btn" data-tool="dash_orb" title="Dash Orb">
+          <div class="w-4 h-4 bg-green-500 rounded-full border-2 border-green-300"></div>
+        </button>
+        <div class="w-px h-8 bg-gray-300 mx-2"></div>
+        <button class="tool-btn" data-tool="eraser" title="Eraser">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
+      
+      <div class="flex items-center gap-3 min-w-max ml-4">
+        <button id="editorClearBtn" class="px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors hidden md:block">Clear</button>
+        <button id="editorPlayBtn" class="px-6 py-2 bg-black text-white rounded-full font-bold hover:bg-gray-800 transition-colors shadow-lg flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+          </svg>
+          Play
+        </button>
+        <button id="editorExitBtn" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full font-bold transition-colors flex items-center gap-2" title="Save & Quit">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h5a2 2 0 012 2v7a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h5v5.586l-1.293-1.293zM9 4a1 1 0 012 0v2H9V4z" />
+          </svg>
+          Save & Quit
+        </button>
+      </div>
+    </div>
+    <!-- Editor Instructions -->
+    <div class="absolute bottom-8 left-0 right-0 text-center pointer-events-none">
+      <p class="text-sm font-medium text-gray-400 bg-white/80 backdrop-blur px-4 py-1 rounded-full inline-block shadow-sm">
+        <span class="hidden md:inline">Click to place • Right-click or use Free Hand to move camera</span>
+        <span class="md:hidden">Use Free Hand to move • Tap to place • Select Eraser to remove</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div id="gameOverScreen" class="ui-overlay interactive hidden fade-transition glass-panel">
+    <div class="text-center max-w-md mx-auto p-10">
+      <h2 class="text-6xl font-black text-gray-900 mb-2 tracking-tighter">FALLEN</h2>
+      <p class="text-gray-500 text-2xl mb-10 font-medium tracking-tight">Final Altitude: <span id="finalScore" class="text-black font-bold">0</span></p>
+      <div class="flex flex-col gap-3">
+        <button id="restartBtn" class="btn-primary">
+          Play Again
+        </button>
+        <button id="backToEditorBtn" class="hidden btn-secondary">
+          Back to Editor
+        </button>
+        <button id="menuBtn" class="text-gray-400 font-bold hover:text-gray-600 mt-4 transition-colors">
+          Main Menu
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    
+    // Audio System
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(type) {
+      if (!audioCtx) return;
+      
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      const now = audioCtx.currentTime;
+
+      if (type === 'jump') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.exponentialRampToValueAtTime(600, now + 0.1);
+        gainNode.gain.setValueAtTime(0.8, now); 
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      } 
+      else if (type === 'start') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.4);
+        gainNode.gain.setValueAtTime(0.5, now); 
+        gainNode.gain.linearRampToValueAtTime(0, now + 0.6);
+        osc.start(now);
+        osc.stop(now + 0.6);
+      }
+      else if (type === 'gameover') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(100, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 0.4);
+        gainNode.gain.setValueAtTime(0.8, now); 
+        gainNode.gain.linearRampToValueAtTime(0, now + 0.4);
+        osc.start(now);
+        osc.stop(now + 0.4);
+      }
+      else if (type === 'spike') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+        gainNode.gain.setValueAtTime(0.8, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      }
+      else if (type === 'orb') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.15);
+        gainNode.gain.setValueAtTime(0.6, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      }
+      else if (type === 'dash') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.linearRampToValueAtTime(1200, now + 0.3);
+        gainNode.gain.setValueAtTime(0.5, now);
+        gainNode.gain.linearRampToValueAtTime(0, now + 2.5);
+        osc.start(now);
+        osc.stop(now + 2.5);
+      }
+      else if (type === 'crack') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(100, now);
+        osc.frequency.linearRampToValueAtTime(50, now + 0.1);
+        gainNode.gain.setValueAtTime(0.3, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now);
+        osc.stop(now + 0.1);
+      }
+      else if (type === 'break') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(80, now);
+        osc.frequency.exponentialRampToValueAtTime(20, now + 0.2);
+        gainNode.gain.setValueAtTime(0.8, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      }
+      else if (type === 'place') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+        gainNode.gain.setValueAtTime(0.3, now);
+        gainNode.gain.linearRampToValueAtTime(0, now + 0.05);
+        osc.start(now);
+        osc.stop(now + 0.05);
+      }
+    }
+
+    // Camera System
+    const camera = {
+        x: 0, 
+        y: 0,
+        zoom: 1,
+        targetZoom: 1,
+        shake: 0,
+        
+        apply: function(ctx, width, height) {
+            // Update zoom
+            this.zoom += (this.targetZoom - this.zoom) * 0.1;
+            if(Math.abs(this.targetZoom - 1) < 0.001 && Math.abs(this.zoom - 1) < 0.001) {
+                this.zoom = 1;
+                this.targetZoom = 1;
+            } else if (Math.abs(this.zoom - this.targetZoom) < 0.001) {
+                this.targetZoom = 1; // Spring back to 1
+            }
+
+            // Update shake
+            if (this.shake > 0) this.shake *= 0.9;
+            if (this.shake < 0.5) this.shake = 0;
+
+            const cx = width / 2;
+            const cy = height / 2;
+            
+            // Apply Transforms
+            ctx.translate(cx, cy);
+            ctx.scale(this.zoom, this.zoom);
+            
+            if (this.shake > 0) {
+                const dx = (Math.random() - 0.5) * this.shake;
+                const dy = (Math.random() - 0.5) * this.shake;
+                ctx.translate(dx, dy);
+            }
+            
+            ctx.translate(-cx, -cy);
+        },
+        
+        triggerEffect: function(intensity, zoomAmount) {
+            this.shake = intensity;
+            this.zoom = zoomAmount; // Instant zoom
+            this.targetZoom = 1; // Decay back to 1
+        },
+
+        flash: function() {
+            const el = document.getElementById('flashOverlay');
+            el.style.opacity = '0.4';
+            setTimeout(() => { el.style.opacity = '0'; }, 50);
+        }
+    };
+
+    // Game State
+    let animationId;
+    let score = 0;
+    let state = 'MENU'; // MENU, PLAYING, GAMEOVER, PAUSED, EDITOR, LEVEL_SELECT
+    let gameMode = 'ENDLESS'; // ENDLESS, CUSTOM
+    let particles = [];
+    let menuParticles = [];
+    
+    // Dash Orb Logic
+    const dashScores = [30, 1500, 3000, 5000];
+    let nextDashIndex = 0;
+    
+    // Tick Rate Handling
+    let lastTime = 0;
+    let accumulator = 0;
+    const fixedTimeStep = 1000 / 60; // 60 updates per second
+    let fpsTime = 0;
+    let frameCount = 0;
+    
+    // Input
+    const keys = { left: false, right: false, up: false, down: false };
+    let inputBuffer = 0; // Frames to accept input for orbs
+    
+    // High DPI Canvas Setup
+    let gameWidth, gameHeight;
+
+    // Configuration
+    const config = {
+      gravity: 0.6,
+      jumpForce: -16.5,
+      speed: 6,
+      friction: 0.85,
+      platformWidth: 110,
+      platformHeight: 20,
+    };
+
+    // DebuggerX - Enhanced Randomizer Logic
+    const DebuggerX = {
+        maxJumpHeight: 220, // Slightly conservative limit
+        minVerticalGap: 60,
+        
+        // Ensure new platform is reachable from previous
+        isValidGap: function(prevY, newY) {
+            const gap = prevY - newY;
+            return gap > this.minVerticalGap && gap < this.maxJumpHeight;
+        },
+
+        // Ensure no overlap with existing platforms
+        checkOverlap: function(newX, newY, newW, newH, platforms) {
+            for (let p of platforms) {
+                // Check if vertically close
+                if (Math.abs(p.y - newY) < 40) {
+                    // Check horizontal overlap
+                    if (newX < p.x + p.w + 20 && newX + newW + 20 > p.x) {
+                        return true; // Overlap detected
+                    }
+                }
+            }
+            return false;
+        }
+    };
+
+    // Editor State
+    let editorPlatforms = [];
+    let editorCameraY = 0;
+    let selectedTool = 'normal';
+    let isDraggingEditor = false;
+    let lastMouseY = 0;
+    let editorGridSize = 20;
+    
+    // Level Management
+    let savedLevels = [];
+    let currentLevelId = null;
+
+    // Entities
+    const player = {
+      x: 0, 
+      y: 0, 
+      r: 12, 
+      vx: 0, 
+      vy: 0,
+      scaleX: 1,
+      scaleY: 1,
+      trail: [],
+      dashEndTime: 0
+    };
+    
+    let platforms = [];
+
+    // Setup Canvas
+    function resize() {
+      gameWidth = window.innerWidth;
+      gameHeight = window.innerHeight;
+      
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = gameWidth * dpr;
+      canvas.height = gameHeight * dpr;
+      
+      ctx.scale(dpr, dpr);
+      
+      canvas.style.width = gameWidth + 'px';
+      canvas.style.height = gameHeight + 'px';
+
+      if (state === 'MENU' || state === 'LEVEL_SELECT') {
+        initMenuParticles();
+        drawMenuBackground();
+      }
+    }
+    window.addEventListener('resize', resize);
+
+    // Input Handlers
+    window.addEventListener('keydown', (e) => {
+      // Pause Shortcut (Escape or P)
+      if (e.code === 'Escape' || e.key === 'p' || e.key === 'P') {
+        if (state === 'PLAYING' || state === 'PAUSED') {
+          togglePause();
+        }
+        return;
+      }
+
+      // Track keys globally
+      if (e.code === 'ArrowLeft' || e.key === 'a') keys.left = true;
+      if (e.code === 'ArrowRight' || e.key === 'd') keys.right = true;
+      if (e.code === 'ArrowUp' || e.key === 'w') keys.up = true;
+      if (e.code === 'ArrowDown' || e.key === 's') keys.down = true;
+
+      // Input Buffer for Orbs (Space, Up, W)
+      if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === 'w') {
+          inputBuffer = 8; // 8 frame window
+      }
+
+      // Only prevent default space in playing
+      if (state === 'PLAYING' && e.code === 'Space') e.preventDefault();
+    });
+    
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'ArrowLeft' || e.key === 'a') keys.left = false;
+      if (e.code === 'ArrowRight' || e.key === 'd') keys.right = false;
+      if (e.code === 'ArrowUp' || e.key === 'w') keys.up = false;
+      if (e.code === 'ArrowDown' || e.key === 's') keys.down = false;
+    });
+
+    window.addEventListener('mousedown', () => {
+        if (state === 'PLAYING') inputBuffer = 8;
+    });
+
+    // Touch Controls
+    window.addEventListener('touchstart', (e) => {
+      // Ignore touch on pause button or editor UI
+      if (e.target.closest('#pauseBtn') || e.target.closest('.interactive') || state === 'EDITOR') return;
+
+      if (state !== 'PLAYING') return;
+      e.preventDefault();
+      
+      // Tap input buffer for orbs
+      inputBuffer = 8;
+
+      const touchX = e.touches[0].clientX;
+      if (touchX < window.innerWidth / 2) keys.left = true;
+      else keys.right = true;
+    }, { passive: false });
+    
+    window.addEventListener('touchend', (e) => {
+      if (state !== 'PLAYING') return;
+      e.preventDefault();
+      keys.left = false;
+      keys.right = false;
+    });
+
+    class Particle {
+      constructor(x, y, type = 'GAME', color = null) {
+        this.x = x; 
+        this.y = y;
+        this.type = type;
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotSpeed = (Math.random() - 0.5) * 0.2;
+
+        if (type === 'GAME') {
+          this.vx = (Math.random() - 0.5) * 6;
+          this.vy = (Math.random() - 0.5) * 6;
+          this.life = 1.0;
+          this.decay = 0.03 + Math.random() * 0.03;
+          this.size = Math.random() * 6 + 3;
+          this.color = color || `rgba(0,0,0,`;
+        } else if (type === 'BLOOD') {
+          this.vx = (Math.random() - 0.5) * 15;
+          this.vy = (Math.random() - 1.5) * 12;
+          this.life = 1.0;
+          this.decay = 0.01 + Math.random() * 0.02;
+          this.size = Math.random() * 10 + 5;
+          this.color = '#dc2626'; 
+        } else if (type === 'ORB_BIT') {
+          this.vx = (Math.random() - 0.5) * 10;
+          this.vy = (Math.random() - 0.5) * 10;
+          this.life = 1.0;
+          this.decay = 0.02 + Math.random() * 0.03;
+          this.size = Math.random() * 4 + 2;
+          this.color = '#fee2e2'; 
+        } else if (type === 'DASH_BIT') {
+          this.vx = (Math.random() - 0.5) * 12;
+          this.vy = (Math.random() - 0.5) * 12 + 5; // Tend downwards
+          this.life = 1.0;
+          this.decay = 0.04 + Math.random() * 0.02;
+          this.size = Math.random() * 5 + 3;
+          this.color = '#22c55e'; // Green
+        } else if (type === 'WOOD_BIT') {
+          this.vx = (Math.random() - 0.5) * 8;
+          this.vy = (Math.random() - 0.5) * 8;
+          this.life = 1.0;
+          this.decay = 0.02 + Math.random() * 0.02;
+          this.size = Math.random() * 8 + 4;
+          this.color = '#5d4037'; 
+        } else {
+          this.vx = (Math.random() - 0.5) * 0.5;
+          this.vy = (Math.random() - 0.5) * 0.5;
+          this.life = 1.0;
+          this.decay = 0;
+          this.size = Math.random() * 60 + 20;
+          this.color = `rgba(0,0,0,0.02)`;
+        }
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.rotation += this.rotSpeed;
+
+        if (this.type === 'GAME') {
+          this.life -= this.decay;
+          this.size *= 0.94;
+          this.vy += 0.15; 
+        } else if (this.type === 'BLOOD') {
+           this.life -= this.decay;
+           this.vy += 0.6;
+           this.size *= 0.96;
+        } else if (this.type === 'ORB_BIT') {
+           this.life -= this.decay;
+           this.size *= 0.92;
+           this.vx *= 0.9;
+           this.vy *= 0.9;
+        } else if (this.type === 'DASH_BIT') {
+           this.life -= this.decay;
+           this.size *= 0.92;
+        } else if (this.type === 'WOOD_BIT') {
+           this.life -= this.decay;
+           this.vy += 0.4; 
+           this.size *= 0.97;
+        } else {
+          if (this.x < -100) this.x = gameWidth + 100;
+          if (this.x > gameWidth + 100) this.x = -100;
+          if (this.y < -100) this.y = gameHeight + 100;
+          if (this.y > gameHeight + 100) this.y = -100;
+        }
+      }
+      draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+
+        if (this.type === 'GAME') {
+          ctx.fillStyle = this.color + `${this.life * 0.3})`;
+          ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+        } else if (this.type === 'BLOOD') {
+           ctx.fillStyle = this.color;
+           ctx.globalAlpha = this.life;
+           ctx.beginPath();
+           ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+           ctx.fill();
+           ctx.globalAlpha = 1.0;
+        } else if (this.type === 'ORB_BIT') {
+           ctx.fillStyle = this.color;
+           ctx.globalAlpha = this.life;
+           ctx.beginPath();
+           ctx.moveTo(0, -this.size);
+           ctx.lineTo(this.size*0.3, -this.size*0.3);
+           ctx.lineTo(this.size, 0);
+           ctx.lineTo(this.size*0.3, this.size*0.3);
+           ctx.lineTo(0, this.size);
+           ctx.lineTo(-this.size*0.3, this.size*0.3);
+           ctx.lineTo(-this.size, 0);
+           ctx.lineTo(-this.size*0.3, -this.size*0.3);
+           ctx.fill();
+           ctx.globalAlpha = 1.0;
+        } else if (this.type === 'DASH_BIT') {
+           ctx.fillStyle = this.color;
+           ctx.globalAlpha = this.life;
+           ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+           ctx.globalAlpha = 1.0;
+        } else if (this.type === 'WOOD_BIT') {
+           ctx.fillStyle = this.color;
+           ctx.globalAlpha = this.life;
+           ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+           ctx.globalAlpha = 1.0;
+        } else {
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    function initMenuParticles() {
+      menuParticles = [];
+      for(let i=0; i<20; i++) {
+        menuParticles.push(new Particle(Math.random() * gameWidth, Math.random() * gameHeight, 'MENU'));
+      }
+    }
+
+    function initGame(mode = 'ENDLESS') {
+      initAudio();
+      playSound('start');
+      
+      gameMode = mode;
+
+      player.x = gameWidth / 2;
+      player.y = gameHeight - 200;
+      player.vx = 0;
+      player.vy = 0;
+      player.scaleX = 1;
+      player.scaleY = 1;
+      player.trail = [];
+      player.dashEndTime = 0;
+      
+      score = 0;
+      camera.shake = 0;
+      camera.zoom = 1;
+      camera.targetZoom = 1;
+      
+      platforms = [];
+      particles = [];
+      keys.left = false;
+      keys.right = false;
+      inputBuffer = 0;
+      nextDashIndex = 0;
+      
+      // Reset Timing for Tick Rate Handler
+      lastTime = 0;
+      accumulator = 0;
+      fpsTime = 0;
+      frameCount = 0;
+      
+      if (gameMode === 'CUSTOM') {
+        // Deep copy editor platforms
+        platforms = JSON.parse(JSON.stringify(editorPlatforms));
+        // Adjust platforms relative to game start
+        platforms.forEach(p => {
+          p.y = (gameHeight - 100) - p.y;
+          // Initialize dynamic properties
+          p.stains = [];
+          p.impulseY = 0;
+          p.vx = 0;
+          if (p.type === 'moving') {
+             p.vx = (Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 3);
+          }
+          if (p.type === 'orb' || p.type === 'dash_orb') {
+             p.floatOffset = Math.random() * Math.PI * 2;
+          }
+          if (p.type === 'breakable') {
+             p.breakingStarted = 0;
+          }
+        });
+        
+        // Ensure a starting platform exists at the bottom if none are close
+        if (!platforms.some(p => Math.abs(p.y - (gameHeight - 100)) < 50)) {
+           platforms.push({ 
+              x: gameWidth / 2 - config.platformWidth / 2, 
+              y: gameHeight - 100, 
+              w: config.platformWidth, 
+              h: config.platformHeight,
+              type: 'normal',
+              stains: [],
+              impulseY: 0
+           });
+        }
+      } else {
+          // Initial platform
+          platforms.push({ 
+            x: gameWidth / 2 - config.platformWidth / 2, 
+            y: gameHeight - 100, 
+            w: config.platformWidth, 
+            h: config.platformHeight,
+            type: 'normal',
+            stains: [],
+            impulseY: 0
+          });
+          generatePlatforms(gameHeight - 100);
+      }
+
+      state = 'PLAYING';
+      document.getElementById('startScreen').classList.add('hidden');
+      document.getElementById('levelSelectScreen').classList.add('hidden');
+      document.getElementById('gameOverScreen').classList.add('hidden');
+      document.getElementById('gameOverScreen').classList.remove('flex');
+      document.getElementById('pauseScreen').classList.add('hidden');
+      document.getElementById('editorUI').classList.add('hidden');
+      
+      // Pause Button Visibility
+      document.getElementById('pauseBtn').classList.remove('hidden');
+      document.getElementById('pauseIcon').classList.remove('hidden');
+      document.getElementById('playIcon').classList.add('hidden');
+
+      document.getElementById('scoreHud').style.color = '#374151';
+      document.getElementById('scoreHud').style.transform = 'scale(1)';
+      document.getElementById('scoreHud').innerText = '0';
+      
+      if(animationId) cancelAnimationFrame(animationId);
+      animationId = requestAnimationFrame(loop);
+    }
+
+    function togglePause() {
+      if (state === 'PLAYING') {
+        state = 'PAUSED';
+        document.getElementById('pauseIcon').classList.add('hidden');
+        document.getElementById('playIcon').classList.remove('hidden');
+        document.getElementById('pauseScreen').classList.remove('hidden');
+        
+        if (gameMode === 'CUSTOM') {
+            document.getElementById('exitToEditorBtn').classList.remove('hidden');
+        } else {
+            document.getElementById('exitToEditorBtn').classList.add('hidden');
+        }
+        
+        cancelAnimationFrame(animationId);
+        animationId = null;
+      } else if (state === 'PAUSED') {
+        state = 'PLAYING';
+        document.getElementById('pauseIcon').classList.remove('hidden');
+        document.getElementById('playIcon').classList.add('hidden');
+        document.getElementById('pauseScreen').classList.add('hidden');
+        
+        // Reset timing to prevent jump
+        lastTime = 0;
+        animationId = requestAnimationFrame(loop);
+      }
+    }
+
+    function generatePlatforms(startY) {
+      if (gameMode === 'CUSTOM') return;
+
+      let y = startY;
+      
+      while (y > -100) {
+        // Dash Orb Injection Logic
+        const currentAltitude = (gameHeight - 100) - y;
+        if (nextDashIndex < dashScores.length && currentAltitude > dashScores[nextDashIndex]) {
+            // Spawn Dash Orb
+            // Ensure orb is easily reachable from previous platform
+            const orbX = Math.random() * (gameWidth - 100) + 50;
+            platforms.push({
+                x: orbX,
+                y: y - 60, // Close to previous platform
+                w: 40, h: 40,
+                type: 'dash_orb',
+                stains: [],
+                hitScale: 0,
+                floatOffset: Math.random() * Math.PI * 2
+            });
+            nextDashIndex++;
+            // Dash lasts 2.5s @ 12px/frame ~= 1800px.
+            // Move generation pointer up significantly so next platform is near dash end
+            y -= 1600; 
+            continue;
+        }
+
+        // DebuggerX Logic for Gap Calculation
+        // Reduced max gap to prevent impossible jumps
+        let gap = 70 + Math.random() * 70; // 70-140px (Max jump ~220px)
+        
+        y -= gap;
+        
+        const w = config.platformWidth + (Math.random() * 40 - 20);
+        let x = Math.random() * (gameWidth - w);
+        
+        // DebuggerX: Check overlap
+        let attempts = 0;
+        while (DebuggerX.checkOverlap(x, y, w, config.platformHeight, platforms) && attempts < 10) {
+            x = Math.random() * (gameWidth - w);
+            y -= 10; // Nudge up if overlapping
+            attempts++;
+        }
+
+        let spikeChance = 0.2 + (score / 50000); 
+        if (spikeChance > 0.5) spikeChance = 0.5;
+
+        let isSpike = Math.random() < spikeChance;
+        
+        // DebuggerX: Prevent consecutive spikes if gap is large
+        if (isSpike && gap > 130) isSpike = false;
+
+        let type = isSpike ? 'spike' : 'normal';
+        
+        if (type === 'normal' && Math.random() < 0.25) {
+            type = 'breakable';
+        }
+
+        if (type === 'normal' && Math.random() < 0.15) {
+            type = 'moving';
+        }
+        
+        let vx = 0;
+        if (type === 'moving') {
+            vx = (Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 3);
+        }
+
+        platforms.push({ 
+          x, y, w, 
+          h: config.platformHeight,
+          type: type,
+          vx: vx, 
+          stains: [],
+          impulseY: 0,
+          floatOffset: Math.random() * Math.PI * 2,
+          breakingStarted: 0 
+        });
+
+        // MANDATORY ORB FOR SPIKES
+        // Fixes "impossible" spiked platforms with no orbs
+        if (isSpike) {
+           const side = Math.random();
+           let orbX, orbY;
+           
+           if (side < 0.45) {
+             orbX = x - 50 - (Math.random() * 20);
+             orbY = y - 20;
+           } else if (side < 0.9) {
+             orbX = x + w + 20 + (Math.random() * 20);
+             orbY = y - 20;
+           } else {
+             orbX = x + w/2 - 15;
+             orbY = y - 90;
+           }
+
+           if (orbX < 30) orbX = 30;
+           if (orbX > gameWidth - 60) orbX = gameWidth - 60;
+           
+           platforms.push({
+             x: orbX, 
+             y: orbY,
+             w: 34, 
+             h: 34, 
+             type: 'orb',
+             stains: [],
+             hitScale: 0,
+             floatOffset: Math.random() * Math.PI * 2
+           });
+        }
+      }
+    }
+
+    function update() {
+      if (state !== 'PLAYING') return;
+
+      if (inputBuffer > 0) inputBuffer--;
+
+      player.trail.push({x: player.x, y: player.y, r: player.r});
+      if (player.trail.length > 6) player.trail.shift();
+
+      // Dash State Logic
+      const isDashing = Date.now() < player.dashEndTime;
+
+      platforms.forEach(p => {
+        if (p.impulseY) {
+          p.currentYOffset = p.currentYOffset || 0;
+          p.currentYOffset += (p.impulseY - p.currentYOffset) * 0.2;
+          p.impulseY *= 0.8; 
+          if (Math.abs(p.impulseY) < 0.1) {
+             p.impulseY = 0;
+             p.currentYOffset = 0;
+          }
+        }
+        if (p.type === 'orb' || p.type === 'dash_orb') {
+          p.hitScale = p.hitScale || 0;
+          p.hitScale *= 0.85;
+          if(p.hitScale < 0.01) p.hitScale = 0;
+        }
+
+        if (p.type === 'moving') {
+            p.x += p.vx;
+            if (p.x <= 0) {
+                p.x = 0;
+                p.vx *= -1;
+            } else if (p.x + p.w >= gameWidth) {
+                p.x = gameWidth - p.w;
+                p.vx *= -1;
+            }
+        }
+
+        if (p.type === 'breakable' && p.breakingStarted > 0) {
+            const elapsed = Date.now() - p.breakingStarted;
+            if (elapsed > 1500) {
+                p.destroyed = true;
+                playSound('break');
+                spawnWoodDebris(p.x + p.w/2, p.y + p.h/2, p.w);
+            }
+        }
+      });
+
+      platforms = platforms.filter(p => !p.destroyed);
+
+      if (keys.left) player.vx -= 1.5;
+      if (keys.right) player.vx += 1.5;
+      
+      player.vx *= config.friction;
+      player.x += player.vx;
+
+      if (player.x + player.r < 0) player.x = gameWidth + player.r;
+      if (player.x - player.r > gameWidth) player.x = -player.r;
+
+      if (isDashing) {
+          player.vy = -12; // Constant upward speed during dash
+          spawnDashParticles(player.x, player.y);
+          camera.shake = 2; // Continuous shake during dash
+      } else {
+          player.vy += config.gravity;
+      }
+      
+      player.y += player.vy;
+
+      let targetScaleX = 1 - Math.min(Math.abs(player.vy) * 0.02, 0.3);
+      let targetScaleY = 1 + Math.min(Math.abs(player.vy) * 0.02, 0.4);
+
+      player.scaleX += (targetScaleX - player.scaleX) * 0.2;
+      player.scaleY += (targetScaleY - player.scaleY) * 0.2;
+
+      // Platform Collisions (only if falling or dashing upwards into an orb)
+      if (player.vy > 0 || isDashing) {
+        platforms.forEach(p => {
+          const effY = p.y + (p.currentYOffset || 0);
+          
+          // Collision box logic
+          const hitX = player.x + player.r > p.x && player.x - player.r < p.x + p.w;
+          
+          // Normal platform collision (only when falling)
+          const hitY_Platform = player.y + player.r >= effY && player.y + player.r <= effY + p.h + player.vy + 4;
+          
+          // Orb collision (more lenient, works moving up or down)
+          const hitY_Orb = player.y + player.r >= effY - 20 && player.y - player.r <= effY + p.h + 20;
+
+          if (hitX) {
+             if (!isDashing && hitY_Platform) {
+                if (p.type === 'spike') {
+                  playSound('spike');
+                  camera.triggerEffect(20, 1.1); // Big shake and zoom on death
+                  camera.flash();
+                  spawnBlood(player.x, player.y + player.r);
+                  gameOver();
+                } else if (p.type !== 'orb' && p.type !== 'dash_orb') {
+                  // Bounce logic
+                  player.vy = config.jumpForce;
+                  playSound('jump');
+                  p.impulseY = 8;
+                  
+                  // Subtle camera bump on jump
+                  camera.triggerEffect(0, 1.02);
+                  
+                  if (p.type === 'breakable' && p.breakingStarted === 0) {
+                      p.breakingStarted = Date.now();
+                      playSound('crack');
+                  }
+                  
+                  player.scaleX = 1.4;
+                  player.scaleY = 0.6;
+                  for(let i=0; i<6; i++) {
+                    particles.push(new Particle(player.x, player.y + player.r));
+                  }
+
+                  if (p.type === 'normal' || p.type === 'breakable' || p.type === 'moving') {
+                    if (p.type !== 'moving') {
+                        p.stains.push({
+                          x: player.x - p.x,
+                          y: 0,
+                          w: 12 + Math.random() * 6,
+                          h: 4 + Math.random() * 3,
+                          rot: (Math.random() - 0.5) * 0.2,
+                          alpha: 0.2 + Math.random() * 0.2
+                        });
+                        if(p.stains.length > 4) p.stains.shift();
+                    }
+                  }
+                  
+                   const hud = document.getElementById('scoreHud');
+                   hud.style.transform = 'scale(1.15)';
+                   setTimeout(() => hud.style.transform = 'scale(1)', 100);
+                }
+             }
+             
+             // Orb Collision (Requires Click/Tap)
+             if (hitY_Orb && inputBuffer > 0) {
+                 if (p.type === 'orb') {
+                      player.vy = config.jumpForce;
+                      playSound('orb');
+                      p.hitScale = 0.8; 
+                      spawnOrbParticles(p.x + p.w/2, p.y + p.h/2);
+                      player.scaleX = 1.4;
+                      player.scaleY = 0.6;
+                      camera.triggerEffect(5, 1.05); // Zoom and shake on orb hit
+                      inputBuffer = 0; // Consume input
+                 } else if (p.type === 'dash_orb') {
+                      // Trigger Dash
+                      player.dashEndTime = Date.now() + 2500;
+                      playSound('dash');
+                      p.hitScale = 0.8;
+                      spawnDashParticles(p.x + p.w/2, p.y + p.h/2);
+                      camera.triggerEffect(10, 1.1); // Big effect on dash
+                      camera.flash();
+                      // Remove orb after use to prevent re-triggering immediately
+                      p.destroyed = true; 
+                      inputBuffer = 0; // Consume input
+                 }
+             }
+          }
+        });
+      }
+
+      if (player.y < gameHeight * 0.45) {
+        let diff = (gameHeight * 0.45) - player.y;
+        player.y += diff;
+        player.trail.forEach(t => t.y += diff);
+        platforms.forEach(p => p.y += diff);
+        score += diff;
+        particles.forEach(p => p.y += diff);
+      }
+
+      // Cleanup logic differs for custom mode (keep everything) vs endless (remove below screen)
+      if (gameMode === 'ENDLESS') {
+        platforms = platforms.filter(p => p.y < gameHeight + 50);
+        const highestPlatform = platforms.reduce((min, p) => p.y < min ? p.y : min, gameHeight);
+        if (highestPlatform > 100) {
+            generatePlatforms(highestPlatform);
+        }
+      }
+
+      if (player.y > gameHeight + 50) {
+        gameOver();
+      }
+
+      particles.forEach(p => p.update());
+      particles = particles.filter(p => p.life > 0);
+
+      document.getElementById('scoreHud').innerText = Math.floor(score / 10);
+    }
+
+    function spawnBlood(x, y) {
+      for(let i=0; i<40; i++) {
+        particles.push(new Particle(x, y, 'BLOOD'));
+      }
+    }
+
+    function spawnOrbParticles(x, y) {
+      for(let i=0; i<20; i++) {
+        particles.push(new Particle(x, y, 'ORB_BIT'));
+      }
+    }
+
+    function spawnDashParticles(x, y) {
+      for(let i=0; i<5; i++) { // Fewer particles per frame for trail
+        particles.push(new Particle(x, y, 'DASH_BIT'));
+      }
+    }
+    
+    function spawnWoodDebris(x, y, w) {
+      for(let i=0; i<15; i++) {
+        const px = x + (Math.random() - 0.5) * w;
+        particles.push(new Particle(px, y, 'WOOD_BIT'));
+      }
+    }
+
+    function draw() {
+      ctx.save();
+      
+      // Apply Camera Effects (Shake, Zoom)
+      if (state === 'PLAYING' || state === 'GAMEOVER') {
+          camera.apply(ctx, gameWidth, gameHeight);
+      }
+
+      const gradient = ctx.createLinearGradient(0, 0, 0, gameHeight);
+      gradient.addColorStop(0, '#f1f5f9'); 
+      gradient.addColorStop(1, '#cbd5e1'); 
+      ctx.fillStyle = gradient;
+      ctx.fillRect(-500, -500, gameWidth+1000, gameHeight+1000); // Oversize for shake
+
+      // Draw Grid in Editor Mode
+      if (state === 'EDITOR') {
+         ctx.strokeStyle = 'rgba(59, 130, 246, 0.15)';
+         ctx.lineWidth = 1;
+         ctx.beginPath();
+         // Vertical lines
+         for(let x=0; x<gameWidth; x+=editorGridSize) {
+            ctx.moveTo(x, 0); ctx.lineTo(x, gameHeight);
+         }
+         // Horizontal lines (scroll aware)
+         const offset = editorCameraY % editorGridSize;
+         for(let y=offset; y<gameHeight; y+=editorGridSize) {
+            ctx.moveTo(0, y); ctx.lineTo(gameWidth, y);
+         }
+         ctx.stroke();
+         
+         // Start Line
+         const startY = (gameHeight - 100) + editorCameraY;
+         ctx.strokeStyle = '#10b981';
+         ctx.lineWidth = 2;
+         ctx.beginPath();
+         ctx.moveTo(0, startY);
+         ctx.lineTo(gameWidth, startY);
+         ctx.stroke();
+         ctx.fillStyle = '#10b981';
+         ctx.fillText("START LEVEL", 10, startY - 5);
+      } else {
+        ctx.strokeStyle = 'rgba(0,0,0,0.03)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for(let x=0; x<gameWidth; x+=100) {
+            ctx.moveTo(x, 0); ctx.lineTo(x, gameHeight);
+        }
+        for(let y=0; y<gameHeight; y+=100) {
+            ctx.moveTo(0, y); ctx.lineTo(gameWidth, y);
+        }
+        ctx.stroke();
+      }
+
+      // Determine which platforms to draw
+      let drawPlatforms = platforms;
+      if (state === 'EDITOR') {
+          drawPlatforms = editorPlatforms.map(p => ({
+              ...p,
+              // Convert Editor Y (distance from bottom) to Canvas Y
+              y: (gameHeight - 100) - p.y + editorCameraY
+          }));
+      }
+
+      drawPlatforms.forEach(p => {
+        // Skip if off screen
+        if (p.y > gameHeight + 100 || p.y < -100) return;
+
+        const drawY = p.y + (p.currentYOffset || 0);
+
+        if (p.type === 'orb' || p.type === 'dash_orb') {
+          const time = Date.now() / 1000;
+          const floatY = state === 'EDITOR' ? 0 : Math.sin(time * 3 + (p.floatOffset||0)) * 6;
+          
+          const cx = p.x + p.w / 2;
+          const cy = p.y + p.h / 2 + floatY;
+          
+          const idleScale = 1 + Math.sin(time * 4) * 0.05;
+          const hitEffect = p.hitScale || 0;
+          const totalScale = idleScale + hitEffect;
+          
+          const r = (p.w / 2) * totalScale;
+          
+          // Shadow
+          ctx.fillStyle = 'rgba(0,0,0,0.1)';
+          ctx.beginPath();
+          ctx.ellipse(cx, p.y + p.h + 20, r * 0.8, r * 0.3, 0, 0, Math.PI*2);
+          ctx.fill();
+
+          if (p.type === 'dash_orb') {
+             // --- Dash Orb Visuals (Chevron Style) ---
+             
+             // Outer Glow/Ring
+             const grad = ctx.createRadialGradient(cx, cy, r*0.4, cx, cy, r);
+             grad.addColorStop(0, '#86efac'); // Light Green
+             grad.addColorStop(0.4, '#22c55e'); // Green
+             grad.addColorStop(1, '#14532d'); // Dark Green
+             
+             ctx.fillStyle = grad;
+             ctx.beginPath();
+             ctx.arc(cx, cy, r, 0, Math.PI*2);
+             ctx.fill();
+             
+             ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + hitEffect})`;
+             ctx.lineWidth = 2;
+             ctx.beginPath();
+             ctx.arc(cx, cy, r, 0, Math.PI*2);
+             ctx.stroke();
+
+             // Draw Chevrons
+             ctx.save();
+             ctx.translate(cx, cy);
+             
+             ctx.strokeStyle = '#ffffff'; 
+             ctx.lineWidth = 4;
+             ctx.lineCap = 'round';
+             ctx.lineJoin = 'round';
+             
+             // Scale animation for chevrons
+             const chevScale = 1 + hitEffect * 0.5;
+             ctx.scale(chevScale, chevScale);
+
+             // Bottom Chevron (Larger)
+             ctx.beginPath();
+             ctx.moveTo(-10, 2);
+             ctx.lineTo(0, -8);
+             ctx.lineTo(10, 2);
+             ctx.stroke();
+
+             // Top Chevron (Smaller)
+             ctx.beginPath();
+             ctx.moveTo(-6, -6);
+             ctx.lineTo(0, -12);
+             ctx.lineTo(6, -6);
+             ctx.stroke();
+             
+             ctx.restore();
+
+             if (hitEffect > 0.1) {
+                ctx.strokeStyle = `rgba(34, 197, 94, ${hitEffect})`;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r + 10 + (1-hitEffect)*30, 0, Math.PI*2);
+                ctx.stroke();
+             }
+
+          } else {
+             // --- Jump Orb Visuals ---
+             ctx.save();
+             ctx.translate(cx, cy);
+             ctx.rotate(time * 0.8 + (p.floatOffset||0));
+             
+             ctx.strokeStyle = `rgba(239, 68, 68, ${0.4 + hitEffect})`; // Red
+             
+             ctx.lineWidth = 2;
+             ctx.setLineDash([4, 6]);
+             ctx.beginPath();
+             ctx.arc(0, 0, r + 8, 0, Math.PI*2);
+             ctx.stroke();
+             ctx.restore();
+
+             const grad = ctx.createRadialGradient(cx - r*0.3, cy - r*0.3, r*0.1, cx, cy, r);
+             grad.addColorStop(0, '#fca5a5');
+             grad.addColorStop(0.4, '#ef4444');
+             grad.addColorStop(1, '#991b1b');
+             
+             ctx.fillStyle = grad;
+             ctx.beginPath();
+             ctx.arc(cx, cy, r, 0, Math.PI*2);
+             ctx.fill();
+             
+             ctx.fillStyle = `rgba(255, 255, 255, ${0.6 + Math.sin(time * 10)*0.3})`;
+             ctx.beginPath();
+             ctx.arc(cx, cy, r * 0.3, 0, Math.PI*2);
+             ctx.fill();
+
+             if (hitEffect > 0.1) {
+                ctx.strokeStyle = `rgba(255, 255, 255, ${hitEffect})`;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r + 10 + (1-hitEffect)*30, 0, Math.PI*2);
+                ctx.stroke();
+             }
+          }
+
+        } else if (p.type === 'spike') {
+          ctx.fillStyle = 'rgba(0,0,0,0.15)';
+          ctx.beginPath();
+          if(ctx.roundRect) ctx.roundRect(p.x + 6, drawY + 8, p.w, p.h, 8);
+          else ctx.rect(p.x + 6, drawY + 8, p.w, p.h);
+          ctx.fill();
+
+          const blockGrad = ctx.createLinearGradient(p.x, drawY, p.x, drawY + p.h);
+          blockGrad.addColorStop(0, '#7f1d1d');
+          blockGrad.addColorStop(1, '#450a0a');
+          
+          ctx.fillStyle = blockGrad;
+          ctx.beginPath();
+          if(ctx.roundRect) ctx.roundRect(p.x, drawY, p.w, p.h, 8);
+          else ctx.rect(p.x, drawY, p.w, p.h);
+          ctx.fill();
+
+          ctx.save();
+          ctx.clip();
+          ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+          ctx.lineWidth = 4;
+          for(let i = -20; i < p.w + 20; i+=10) {
+            ctx.beginPath();
+            ctx.moveTo(p.x + i, drawY);
+            ctx.lineTo(p.x + i - 10, drawY + p.h);
+            ctx.stroke();
+          }
+          ctx.restore();
+
+          const time = Date.now() / 200;
+          const spikeW = 12;
+          const numSpikes = Math.floor((p.w - 10) / spikeW);
+          const startX = p.x + (p.w - (numSpikes * spikeW)) / 2;
+          
+          for (let i = 0; i < numSpikes; i++) {
+            const sx = startX + i * spikeW;
+            const wave = Math.sin(time + i * 0.5) * 3; 
+            const sh = 12 + wave; 
+
+            ctx.shadowColor = '#ef4444';
+            ctx.shadowBlur = 10;
+            
+            const spikeGrad = ctx.createLinearGradient(sx, drawY - sh, sx, drawY);
+            spikeGrad.addColorStop(0, '#fca5a5'); 
+            spikeGrad.addColorStop(1, '#991b1b'); 
+
+            ctx.fillStyle = spikeGrad;
+            ctx.beginPath();
+            ctx.moveTo(sx, drawY);
+            ctx.lineTo(sx + spikeW / 2, drawY - sh);
+            ctx.lineTo(sx + spikeW, drawY);
+            ctx.fill();
+            
+            ctx.shadowBlur = 0;
+          }
+
+        } else if (p.type === 'moving') {
+          ctx.fillStyle = 'rgba(0,0,0,0.1)';
+          ctx.beginPath();
+          if(ctx.roundRect) ctx.roundRect(p.x + 4, drawY + 6, p.w, p.h, 8);
+          else ctx.rect(p.x + 4, drawY + 6, p.w, p.h);
+          ctx.fill();
+
+          const blueGrad = ctx.createLinearGradient(p.x, drawY, p.x, drawY + p.h);
+          blueGrad.addColorStop(0, '#60a5fa'); 
+          blueGrad.addColorStop(1, '#2563eb'); 
+
+          ctx.fillStyle = blueGrad;
+          ctx.beginPath();
+          if(ctx.roundRect) ctx.roundRect(p.x, drawY, p.w, p.h, 8);
+          else ctx.rect(p.x, drawY, p.w, p.h);
+          ctx.fill();
+
+          ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+          ctx.lineWidth = 2;
+          
+          const dir = p.vx > 0 ? 1 : -1;
+          const offset = (Date.now() / 20) % 20; 
+          
+          ctx.save();
+          ctx.clip();
+          
+          for(let i = 0; i < p.w; i+=20) {
+              let drawX = p.x + i;
+              if (dir > 0) drawX = p.x + ((i + offset) % p.w);
+              else drawX = p.x + p.w - ((i + offset) % p.w);
+
+              ctx.beginPath();
+              
+              if (dir > 0) {
+                  // Point Right >
+                  ctx.moveTo(drawX - 5, drawY + 5);
+                  ctx.lineTo(drawX, drawY + p.h/2);
+                  ctx.lineTo(drawX - 5, drawY + p.h - 5);
+              } else {
+                  // Point Left <
+                  ctx.moveTo(drawX, drawY + 5);
+                  ctx.lineTo(drawX - 5, drawY + p.h/2);
+                  ctx.lineTo(drawX, drawY + p.h - 5);
+              }
+              
+              ctx.stroke();
+          }
+          ctx.restore();
+
+          ctx.fillStyle = '#bfdbfe'; 
+          ctx.shadowColor = '#3b82f6';
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          if(ctx.roundRect) ctx.roundRect(p.x + 2, drawY + 1, p.w - 4, 4, 4);
+          else ctx.rect(p.x + 2, drawY + 1, p.w - 4, 4);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+        } else if (p.type === 'breakable') {
+          let shakeX = 0;
+          let shakeY = 0;
+          if (p.breakingStarted > 0) {
+            const intensity = (Date.now() - p.breakingStarted) / 1500 * 3;
+            shakeX = (Math.random() - 0.5) * intensity;
+            shakeY = (Math.random() - 0.5) * intensity;
+          }
+
+          const bx = p.x + shakeX;
+          const by = drawY + shakeY;
+
+          ctx.fillStyle = 'rgba(0,0,0,0.1)';
+          ctx.beginPath();
+          if(ctx.roundRect) ctx.roundRect(bx + 4, by + 6, p.w, p.h, 6);
+          else ctx.rect(bx + 4, by + 6, p.w, p.h);
+          ctx.fill();
+
+          const woodGrad = ctx.createLinearGradient(bx, by, bx, by + p.h);
+          woodGrad.addColorStop(0, '#a1887f');
+          woodGrad.addColorStop(1, '#5d4037');
+
+          ctx.fillStyle = woodGrad;
+          ctx.beginPath();
+          if(ctx.roundRect) ctx.roundRect(bx, by, p.w, p.h, 6);
+          else ctx.rect(bx, by, p.w, p.h);
+          ctx.fill();
+
+          ctx.strokeStyle = 'rgba(62, 39, 35, 0.2)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(bx + 5, by + 5);
+          ctx.lineTo(bx + p.w - 5, by + 5);
+          ctx.moveTo(bx + 10, by + 12);
+          ctx.lineTo(bx + p.w - 15, by + 12);
+          ctx.stroke();
+
+          if (p.breakingStarted > 0) {
+              const progress = (Date.now() - p.breakingStarted) / 1500;
+              ctx.strokeStyle = `rgba(0,0,0,${progress * 0.8})`;
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(bx + p.w/2, by);
+              ctx.lineTo(bx + p.w/2 - 5, by + 8);
+              ctx.lineTo(bx + p.w/2 + 5, by + 14);
+              ctx.lineTo(bx + p.w/2, by + p.h);
+              ctx.stroke();
+          }
+          
+          if (p.stains) {
+            p.stains.forEach(s => {
+                ctx.save();
+                ctx.translate(bx + s.x, by + 2);
+                ctx.rotate(s.rot);
+                ctx.fillStyle = `rgba(30, 30, 35, ${s.alpha})`;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, s.w/2, s.h/2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+          }
+
+        } else {
+          ctx.fillStyle = 'rgba(0,0,0,0.05)';
+          ctx.beginPath();
+          if(ctx.roundRect) ctx.roundRect(p.x + 4, drawY + 6, p.w, p.h, 8);
+          else ctx.rect(p.x + 4, drawY + 6, p.w, p.h);
+          ctx.fill();
+
+          const grad = ctx.createLinearGradient(p.x, drawY, p.x, drawY + p.h);
+          grad.addColorStop(0, '#f8fafc');
+          grad.addColorStop(1, '#cbd5e1');
+
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          if(ctx.roundRect) ctx.roundRect(p.x, drawY, p.w, p.h, 8);
+          else ctx.rect(p.x, drawY, p.w, p.h);
+          ctx.fill();
+
+          if (p.stains) {
+            p.stains.forEach(s => {
+                ctx.save();
+                ctx.translate(p.x + s.x, drawY + 2);
+                ctx.rotate(s.rot);
+                ctx.fillStyle = `rgba(30, 30, 35, ${s.alpha})`;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, s.w/2, s.h/2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+          }
+          
+          ctx.fillStyle = '#ffffff';
+          ctx.shadowColor = 'rgba(255,255,255,0.8)';
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          if(ctx.roundRect) ctx.roundRect(p.x + 2, drawY + 1, p.w - 4, 4, 4);
+          else ctx.rect(p.x + 2, drawY + 1, p.w - 4, 4);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+      });
+
+      if (state !== 'EDITOR') {
+        particles.forEach(p => p.draw(ctx));
+
+        player.trail.forEach((pos, i) => {
+           const alpha = (i / player.trail.length) * 0.2;
+           const scale = 0.5 + (i / player.trail.length) * 0.5;
+           ctx.fillStyle = `rgba(24, 24, 27, ${alpha})`;
+           ctx.beginPath();
+           ctx.arc(pos.x, pos.y, pos.r * scale, 0, Math.PI*2);
+           ctx.fill();
+        });
+
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.scale(player.scaleX, player.scaleY);
+        
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetY = 10;
+        
+        const pGrad = ctx.createRadialGradient(-5, -5, 2, 0, 0, player.r);
+        
+        // Change color if dashing
+        if (Date.now() < player.dashEndTime) {
+           pGrad.addColorStop(0, '#86efac');
+           pGrad.addColorStop(1, '#15803d');
+           ctx.shadowColor = '#22c55e';
+        } else {
+           pGrad.addColorStop(0, '#3f3f46');
+           pGrad.addColorStop(1, '#18181b');
+        }
+        
+        ctx.fillStyle = pGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, player.r, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.beginPath();
+        ctx.arc(-4, -4, player.r/2.5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+      }
+      
+      ctx.restore(); 
+    }
+
+    // New function to handle editor camera movement via keys
+    function updateEditor() {
+      if (keys.up) editorCameraY += 15;
+      if (keys.down) editorCameraY -= 15;
+      if (editorCameraY < 0) editorCameraY = 0;
+    }
+
+    function loop(timestamp) {
+      if (state === 'PLAYING') {
+        // Initialize lastTime if it's the first frame
+        if (!lastTime) lastTime = timestamp;
+        
+        let deltaTime = timestamp - lastTime;
+        lastTime = timestamp;
+
+        // Cap deltaTime to prevent "spiral of death" on heavy lag
+        if (deltaTime > 100) deltaTime = 100;
+
+        accumulator += deltaTime;
+
+        // Fixed Timestep Update Loop
+        while (accumulator >= fixedTimeStep) {
+          update();
+          accumulator -= fixedTimeStep;
+        }
+
+        draw();
+
+        // FPS Calculation
+        fpsTime += deltaTime;
+        frameCount++;
+        if (fpsTime >= 1000) {
+          document.getElementById('fpsDisplay').innerText = frameCount + ' FPS';
+          frameCount = 0;
+          fpsTime = 0;
+        }
+
+        animationId = requestAnimationFrame(loop);
+      } else if (state === 'GAMEOVER') {
+        draw();
+      } else if (state === 'EDITOR') {
+        updateEditor(); // Handle key movement
+        draw();
+        animationId = requestAnimationFrame(loop);
+      }
+    }
+
+    function gameOver() {
+      state = 'GAMEOVER';
+      if(player.y > gameHeight + 50) playSound('gameover');
+      draw();
+      cancelAnimationFrame(animationId);
+      document.getElementById('finalScore').innerText = Math.floor(score / 10);
+      document.getElementById('gameOverScreen').classList.remove('hidden');
+      document.getElementById('gameOverScreen').classList.add('flex');
+      document.getElementById('pauseBtn').classList.add('hidden'); 
+      document.getElementById('scoreHud').style.color = 'transparent';
+      
+      if (gameMode === 'CUSTOM') {
+          document.getElementById('backToEditorBtn').classList.remove('hidden');
+          document.getElementById('restartBtn').innerText = "Retry Level";
+      } else {
+          document.getElementById('backToEditorBtn').classList.add('hidden');
+          document.getElementById('restartBtn').innerText = "Play Again";
+      }
+      
+      if (!menuParticles.length) initMenuParticles();
+      animateMenu();
+    }
+    
+    function drawMenuBackground() {
+       const gradient = ctx.createLinearGradient(0, 0, 0, gameHeight);
+       gradient.addColorStop(0, '#f1f5f9');
+       gradient.addColorStop(1, '#cbd5e1');
+       ctx.fillStyle = gradient;
+       ctx.fillRect(0,0, gameWidth, gameHeight);
+       
+       menuParticles.forEach(p => {
+         p.update();
+         p.draw(ctx);
+       });
+       
+       particles.forEach(p => {
+         p.update();
+         p.draw(ctx);
+       });
+       
+       if (state === 'MENU' || state === 'GAMEOVER' || state === 'LEVEL_SELECT') {
+         requestAnimationFrame(drawMenuBackground);
+       }
+    }
+    
+    function animateMenu() {
+      drawMenuBackground();
+    }
+
+    // --- LEVEL MANAGEMENT FUNCTIONS ---
+    function loadLevels() {
+      try {
+        const stored = localStorage.getItem('ascend_levels');
+        if (stored) {
+          savedLevels = JSON.parse(stored);
+        } 
+        // FIX: If localStorage is empty/missing, we only initialize to empty array
+        // if we don't already have data in memory. This prevents wiping session data
+        // if localStorage write failed but memory is good.
+        else if (!savedLevels) {
+          savedLevels = [];
+        }
+      } catch (e) {
+        console.error("Failed to load levels:", e);
+        // Do not wipe in-memory data on read error
+        if (!savedLevels) savedLevels = [];
+      }
+    }
+
+    function saveLevels() {
+      try {
+        localStorage.setItem('ascend_levels', JSON.stringify(savedLevels));
+      } catch (e) {
+        console.error("Could not save level to local storage:", e);
+      }
+    }
+
+    function renderLevelList() {
+      const grid = document.getElementById('levelGrid');
+      grid.innerHTML = '';
+      
+      if (!savedLevels || savedLevels.length === 0) {
+        grid.innerHTML = '<div class="col-span-full text-center text-gray-400 py-10 font-bold">No levels created yet. Start building!</div>';
+        return;
+      }
+
+      savedLevels.forEach(level => {
+        const card = document.createElement('div');
+        card.className = 'level-card';
+        card.innerHTML = `
+          <div>
+            <h4 class="font-bold text-xl text-gray-800 truncate">${level.name}</h4>
+            <p class="text-xs text-gray-400 font-mono mt-1">
+               Updated: ${level.updated ? new Date(level.updated).toLocaleTimeString() : 'New'}
+            </p>
+            <p class="text-[10px] text-gray-300 font-mono mt-0.5">ID: ${level.id}</p>
+          </div>
+          <div class="flex gap-2 mt-4 justify-end">
+            <!-- Play Icon -->
+            <button class="p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200" onclick="playLevel('${level.id}')" title="Play">
+               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+            </button>
+            <!-- Hammer Icon (Edit) -->
+            <button class="p-2 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200" onclick="editLevel('${level.id}')" title="Edit">
+               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                 <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6.586 6.586a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6.586-6.586zm-1.707 9L4.414 16.414 3 15l4.172-4.172-1.415-1.414L1.586 13.586 3 15l1.414-1.414 1.415 1.414-1.415 1.414L3 17.828l1.414 1.414 1.415-1.414 1.414 1.414 1.414-1.414-1.414-1.414 1.343-1.343zM11 5.414L5.414 11l1.414 1.414L12.414 6.828 11 5.414z" clip-rule="evenodd" />
+                 <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793z" />
+               </svg>
+            </button>
+            <!-- Delete Icon -->
+            <button class="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200" onclick="deleteLevel('${level.id}')" title="Delete">
+               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function openLevelSelect(shouldReload) {
+      // FIX: Check if shouldReload is strictly boolean false, otherwise default to true
+      // This handles the Event object passed by addEventListener which is truthy
+      const doReload = shouldReload !== false;
+
+      const prevState = state;
+      state = 'LEVEL_SELECT';
+      
+      if (doReload) {
+          loadLevels();
+      }
+      
+      renderLevelList();
+      
+      document.getElementById('startScreen').classList.add('hidden');
+      document.getElementById('editorUI').classList.add('hidden');
+      document.getElementById('levelSelectScreen').classList.remove('hidden');
+      
+      // Prevent double animation loop if background was already running
+      if (prevState !== 'MENU' && prevState !== 'GAMEOVER') {
+          if (!menuParticles.length) initMenuParticles();
+          drawMenuBackground();
+      }
+    }
+
+    function createNewLevel(name) {
+      if (!Array.isArray(savedLevels)) savedLevels = [];
+      const id = 'lvl_' + Date.now();
+      const newLevel = {
+        id: id,
+        name: name,
+        created: Date.now(),
+        updated: Date.now(),
+        data: [] // Empty platforms
+      };
+      savedLevels.push(newLevel);
+      saveLevels();
+      
+      // Update UI immediately so user can see it and click Play/Edit
+      renderLevelList();
+      
+      // Immediately open editor
+      editLevel(id); 
+    }
+
+    // Exposed to global scope for onclick handlers in HTML string
+    window.playLevel = function(id) {
+      const level = savedLevels.find(l => l.id === id);
+      if (level) {
+        editorPlatforms = JSON.parse(JSON.stringify(level.data));
+        currentLevelId = id;
+        initGame('CUSTOM');
+      }
+    };
+
+    window.editLevel = function(id) {
+      const level = savedLevels.find(l => l.id === id);
+      if (level) {
+        currentLevelId = id;
+        editorPlatforms = JSON.parse(JSON.stringify(level.data)); // Load data
+        initEditor(); // Start editor UI
+      }
+    };
+
+    window.deleteLevel = function(id) {
+      if(confirm('Are you sure you want to delete this level?')) {
+        savedLevels = savedLevels.filter(l => l.id !== id);
+        saveLevels();
+        renderLevelList();
+      }
+    };
+
+    function saveCurrentLevelData() {
+      if (!currentLevelId) return;
+      
+      const index = savedLevels.findIndex(l => l.id === currentLevelId);
+      
+      if (index !== -1) {
+        savedLevels[index].data = JSON.parse(JSON.stringify(editorPlatforms));
+        savedLevels[index].updated = Date.now(); // Save track in milliseconds
+        saveLevels();
+      } else {
+        // Fallback: If for some reason the ID isn't found, try to recover by pushing it
+        const recoveredLevel = {
+            id: currentLevelId,
+            name: "Recovered Level",
+            created: Date.now(),
+            updated: Date.now(),
+            data: JSON.parse(JSON.stringify(editorPlatforms))
+        };
+        savedLevels.push(recoveredLevel);
+        saveLevels();
+      }
+    }
+
+    // --- EDITOR FUNCTIONS ---
+    function initEditor() {
+      state = 'EDITOR';
+      editorCameraY = 0;
+      // NOTE: We do NOT clear editorPlatforms here anymore to preserve state on "Back to Editor"
+      // editorPlatforms is handled by createNewLevel or editLevel
+      
+      document.getElementById('startScreen').classList.add('hidden');
+      document.getElementById('levelSelectScreen').classList.add('hidden');
+      document.getElementById('gameOverScreen').classList.add('hidden');
+      document.getElementById('gameOverScreen').classList.remove('flex');
+      document.getElementById('editorUI').classList.remove('hidden');
+      document.getElementById('pauseBtn').classList.add('hidden');
+      document.getElementById('scoreHud').style.color = 'transparent';
+      
+      if(animationId) cancelAnimationFrame(animationId);
+      animationId = requestAnimationFrame(loop);
+    }
+
+    function handleEditorInput(clientX, clientY, isRightClick = false) {
+      if (state !== 'EDITOR') return;
+
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width / (window.devicePixelRatio||1);
+      const scaleY = canvas.height / rect.height / (window.devicePixelRatio||1);
+
+      const clickX = (clientX - rect.left) * scaleX;
+      const clickY = (clientY - rect.top) * scaleY;
+
+      // Logic:
+      // ClickY is screen coordinate.
+      // We need to convert this to "Level Y" (distance from bottom).
+      // Screen Y = (gameHeight - 100) - LevelY + CameraY
+      // LevelY = (gameHeight - 100) + CameraY - ScreenY
+      
+      const levelY = (gameHeight - 100) + editorCameraY - clickY;
+      
+      // Snap to Grid
+      // Note: We use these for Eraser logic, but recalculate for placement to center the object
+      const snappedX = Math.floor(clickX / editorGridSize) * editorGridSize;
+      const snappedLevelY = Math.floor(levelY / editorGridSize) * editorGridSize;
+
+      if (selectedTool === 'eraser' || isRightClick) {
+          // Find platform near click
+          // Check collision in editor space
+          const hitIndex = editorPlatforms.findIndex(p => {
+              const pScreenY = (gameHeight - 100) - p.y + editorCameraY;
+              return clickX >= p.x && clickX <= p.x + p.w &&
+                     clickY >= pScreenY && clickY <= pScreenY + p.h;
+          });
+          if (hitIndex !== -1) {
+              editorPlatforms.splice(hitIndex, 1);
+              playSound('break');
+          }
+      } else if (selectedTool !== 'pan') {
+          let w = config.platformWidth;
+          let h = config.platformHeight;
+          if (selectedTool === 'orb' || selectedTool === 'dash_orb') {
+              w = 34; h = 34;
+          }
+          
+          // FIX: Center the object on the cursor
+          // Calculate the top-left X coordinate so the center aligns with clickX
+          const targetX = clickX - w / 2;
+          
+          // Calculate the Altitude (y) so the center aligns with clickY
+          // Visual Center Y = clickY
+          // Visual Top Y = clickY - h/2
+          // Altitude = (GameHeight - 100) + CamY - VisualTopY
+          const targetAlt = (gameHeight - 100) + editorCameraY - (clickY - h / 2);
+          
+          const centeredSnappedX = Math.floor(targetX / editorGridSize) * editorGridSize;
+          const centeredSnappedY = Math.floor(targetAlt / editorGridSize) * editorGridSize;
+          
+          editorPlatforms.push({
+              x: centeredSnappedX,
+              y: centeredSnappedY,
+              w: w,
+              h: h,
+              type: selectedTool
+          });
+          playSound('place');
+      }
+    }
+
+    // Editor Event Listeners - MOUSE
+    canvas.addEventListener('mousedown', (e) => {
+        if (state !== 'EDITOR') return;
+        if (e.button === 2 || selectedTool === 'pan') { // Right click or Pan tool
+            isDraggingEditor = true;
+            lastMouseY = e.clientY;
+        } else {
+            handleEditorInput(e.clientX, e.clientY, false);
+        }
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+        if (state !== 'EDITOR') return;
+        if (isDraggingEditor) {
+            const dy = e.clientY - lastMouseY;
+            editorCameraY += dy;
+            lastMouseY = e.clientY;
+            // Prevent scrolling below start
+            if (editorCameraY < 0) editorCameraY = 0;
+        }
+    });
+
+    canvas.addEventListener('mouseup', () => {
+        isDraggingEditor = false;
+    });
+
+    // Editor Event Listeners - TOUCH (Mobile Fix)
+    canvas.addEventListener('touchstart', (e) => {
+        if (state !== 'EDITOR') return;
+        e.preventDefault(); // Prevent scrolling the page
+        const touch = e.touches[0];
+        
+        if (selectedTool === 'pan') {
+            isDraggingEditor = true;
+            lastMouseY = touch.clientY;
+        } else {
+            handleEditorInput(touch.clientX, touch.clientY, false);
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+        if (state !== 'EDITOR') return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        
+        if (isDraggingEditor && selectedTool === 'pan') {
+            const dy = touch.clientY - lastMouseY;
+            editorCameraY += dy;
+            lastMouseY = touch.clientY;
+            if (editorCameraY < 0) editorCameraY = 0;
+        }
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+        if (state !== 'EDITOR') return;
+        isDraggingEditor = false;
+    });
+
+    canvas.addEventListener('contextmenu', e => {
+        if (state === 'EDITOR') e.preventDefault();
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+        if (state !== 'EDITOR') return;
+        // Inverted scroll direction for intuitive "Scroll Up to Go Up"
+        editorCameraY -= e.deltaY;
+        if (editorCameraY < 0) editorCameraY = 0;
+    });
+
+    // Tool Selection
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            const target = e.currentTarget;
+            target.classList.add('active');
+            selectedTool = target.dataset.tool;
+        });
+    });
+
+    document.getElementById('editorClearBtn').addEventListener('click', () => {
+        if(confirm('Clear all platforms?')) {
+            editorPlatforms = [];
+        }
+    });
+
+    document.getElementById('editorPlayBtn').addEventListener('click', () => {
+        // Save before playing just in case
+        saveCurrentLevelData();
+        initGame('CUSTOM');
+    });
+
+    document.getElementById('editorExitBtn').addEventListener('click', () => {
+        saveCurrentLevelData();
+        // Pass false to prevent reloading from disk, ensuring the just-saved data in memory is displayed
+        openLevelSelect(false);
+    });
+    
+    document.getElementById('backToEditorBtn').addEventListener('click', () => {
+        initEditor();
+    });
+    
+    document.getElementById('exitToEditorBtn').addEventListener('click', () => {
+        // Just switch UI back to editor, data is preserved in memory
+        initEditor();
+        document.getElementById('pauseScreen').classList.add('hidden');
+    });
+
+    // --- MAIN LISTENERS ---
+
+    // Start listeners
+    document.getElementById('startBtn').addEventListener('click', () => initGame('ENDLESS'));
+    
+    // Updated: Open Level Select instead of direct editor
+    document.getElementById('editorBtn').addEventListener('click', openLevelSelect);
+    
+    // Level Select UI Listeners
+    document.getElementById('backToMenuFromLevels').addEventListener('click', () => {
+        state = 'MENU';
+        document.getElementById('levelSelectScreen').classList.add('hidden');
+        document.getElementById('startScreen').classList.remove('hidden');
+    });
+    
+    document.getElementById('createNewLevelBtn').addEventListener('click', () => {
+        document.getElementById('newLevelNameInput').value = '';
+        document.getElementById('createLevelModal').classList.remove('hidden');
+        document.getElementById('newLevelNameInput').focus();
+    });
+    
+    // Added Enter Key Support for Creating Level
+    document.getElementById('newLevelNameInput').addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('confirmCreateLevel').click();
+        }
+    });
+    
+    document.getElementById('cancelCreateLevel').addEventListener('click', () => {
+        document.getElementById('createLevelModal').classList.add('hidden');
+    });
+    
+    document.getElementById('confirmCreateLevel').addEventListener('click', () => {
+        const nameInput = document.getElementById('newLevelNameInput');
+        const name = nameInput.value.trim() || 'Untitled Level';
+        document.getElementById('createLevelModal').classList.add('hidden');
+        createNewLevel(name);
+    });
+    
+    document.getElementById('restartBtn').addEventListener('click', () => {
+        if (gameMode === 'CUSTOM') initGame('CUSTOM');
+        else initGame('ENDLESS');
+    });
+    
+    document.getElementById('menuBtn').addEventListener('click', () => {
+        // Fix: Save level data if coming from custom game
+        if (gameMode === 'CUSTOM') saveCurrentLevelData();
+        
+        state = 'MENU';
+        document.getElementById('gameOverScreen').classList.add('hidden');
+        document.getElementById('gameOverScreen').classList.remove('flex');
+        document.getElementById('startScreen').classList.remove('hidden');
+        initMenuParticles();
+        drawMenuBackground();
+    });
+    
+    document.getElementById('exitToMenuBtn').addEventListener('click', () => {
+        // Fix: Save level data if coming from custom game
+        if (gameMode === 'CUSTOM') saveCurrentLevelData();
+
+        state = 'MENU';
+        document.getElementById('pauseScreen').classList.add('hidden');
+        document.getElementById('startScreen').classList.remove('hidden');
+        document.getElementById('pauseBtn').classList.add('hidden');
+        document.getElementById('scoreHud').style.color = 'transparent';
+        initMenuParticles();
+        drawMenuBackground();
+    });
+    
+    const pauseBtn = document.getElementById('pauseBtn');
+    const handlePause = (e) => {
+      if (e.type === 'touchstart') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      togglePause();
+      pauseBtn.blur(); 
+    };
+    pauseBtn.addEventListener('click', handlePause);
+    pauseBtn.addEventListener('touchstart', handlePause, { passive: false });
+
+    const pauseScreen = document.getElementById('pauseScreen');
+    const handleResume = (e) => {
+      if (e.target.tagName === 'BUTTON') return; // Let buttons work
+      if (e.type === 'touchstart') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      togglePause();
+    };
+    pauseScreen.addEventListener('click', handleResume);
+    pauseScreen.addEventListener('touchstart', handleResume, { passive: false });
+
+    // Init
+    loadLevels();
+    resize();
+    initMenuParticles();
+    drawMenuBackground();
+  </script>
+</body>
+</html>

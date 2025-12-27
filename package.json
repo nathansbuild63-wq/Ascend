@@ -1,0 +1,20 @@
+{
+  "name": "ascend-pwa",
+  "version": "1.0.0",
+  "description": "Ascend - High Altitude Platformer & Level Editor (PWA)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npx serve .",
+    "build": "echo \"Static PWA - no build step\""
+  },
+  "keywords": [
+    "pwa",
+    "game",
+    "platformer",
+    "editor",
+    "ascend"
+  ],
+  "author": "TheNathansBuild63",
+  "license": "MIT"
+}
