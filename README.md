@@ -1,8 +1,8 @@
 <p align="center">
   <img
-    src="./nathan_sBUILDBANNER.png"
+    src="./Nathan_sBUILDBANNER.png"
     alt="Build Banner"
-    width="800"
+    width="500"
   />
 </p>
 
