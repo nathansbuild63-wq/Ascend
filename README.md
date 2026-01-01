@@ -1,11 +1,17 @@
 <p align="center">
   <img
-    src="./Nathan_sBUILDBANNER.png"
+    src="./NathansBuildBanner-v2"
     alt="Build Banner"
     width="500"
   />
 </p>
 
+# hello 2026 ascend
+
+i wll improve updates on ascend now it shall be more fun to play but lets take a break first
+here is the game link
+
+[ascend.com](https://nathansbuild63-wq/Ascend/)
 
 # Ascend
 
@@ -19,6 +25,8 @@ ascend is a game where you are a ball jumping through platforms going through ch
  • Platforms
 
  if you see this thanks for playing
+ please like my game!
+ 
  # Update 1.0.2 
  added a readme and banner
 
