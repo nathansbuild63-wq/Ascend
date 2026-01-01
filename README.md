@@ -1,6 +1,6 @@
 <p align="center">
   <img
-    src="./NathansBuildBanner-v2"
+    src="./NathansBuildBanner_v2.png"
     alt="Build Banner"
     width="500"
   />
