@@ -8,7 +8,7 @@
 
 # hello 2026 ascend
 
-i wll improve updates on ascend now it shall be more fun to play but lets take a break first
+i will improve updates on ascend now it shall be more fun to play but lets take a break first
 here is the game link
 
 [ascend.com](https://nathansbuild63-wq.github.io/Ascend/)
